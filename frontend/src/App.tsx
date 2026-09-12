@@ -7,6 +7,7 @@ import './App.css'
 function App() {
   const [count, setCount] = useState(0)
 
+export default function App() {
   return (
     <>
       <section id="center">
@@ -120,3 +121,12 @@ function App() {
 }
 
 export default App
+      {/* Страницы с Layout */}
+      <Route path="/" element={<Layout />}>
+        <Route index element={<Dashboard />} />
+        <Route path="schedule" element={<Schedule />} />
+        <Route path="my-bookings" element={<MyBookings />} />
+      </Route>
+    </Routes>
+  );
+}
