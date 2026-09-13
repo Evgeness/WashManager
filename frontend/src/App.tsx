@@ -1,21 +1,32 @@
+// Импортируем Routes и Route для настройки маршрутизации
+// (BrowserRouter уже подключён в main.tsx на более высоком уровне)
 import { Routes, Route } from 'react-router-dom';
-import Layout from './components/Layout';
-import Dashboard from './pages/Dashboard';
-import Schedule from './pages/Schedule';
-import MyBookings from './pages/MyBookings';
-import Login from './pages/Login';
-import Register from './pages/Register';
+
+// Импортируем все страницы приложения
+import Layout from './components/Layout';        // Общий каркас с шапкой
+import Dashboard from './pages/Dashboard';       // Главная страница
+import Schedule from './pages/Schedule';         // Расписание
+import MyBookings from './pages/MyBookings';     // Мои брони
+import Login from './pages/Login';               // Вход
+import Register from './pages/Register';         // Регистрация
 
 export default function App() {
   return (
     <Routes>
-      {/* Страницы без Layout */}
+      {/* ===== СТРАНИЦЫ БЕЗ ШАПКИ ===== 
+          Логин и регистрация отображаются отдельно — 
+          без навигации, чтобы пользователь сфокусировался на форме. */}
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
 
-      {/* Страницы с Layout */}
+      {/* ===== СТРАНИЦЫ С ОБЩИМ КАРКАСОМ ===== 
+          Вложенные маршруты: Layout рендерит шапку и <Outlet />,
+          а внутрь <Outlet /> подставляются дочерние страницы. */}
       <Route path="/" element={<Layout />}>
+        {/* index — это маршрут по умолчанию, т.е. "/" */}
         <Route index element={<Dashboard />} />
+        
+        {/* Относительные пути: "/schedule", "/my-bookings" */}
         <Route path="schedule" element={<Schedule />} />
         <Route path="my-bookings" element={<MyBookings />} />
       </Route>

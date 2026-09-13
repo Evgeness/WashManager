@@ -110,19 +110,29 @@ code {
   background: var(--code-bg);
 }
 
+/* ===== АНИМАЦИЯ ПУЗЫРЬКОВ =====
+   Используется в Layout.tsx для эффекта всплывающих пузырьков в шапке.
+   
+   Как это работает:
+   - 0%: пузырёк внизу, невидимый
+   - 10%: пузырёк появляется
+   - 90%: пузырёк ещё виден
+   - 100%: пузырёк поднялся вверх на 250px, стал невидимым и увеличился
+   
+   Анимация применяется с infinite (бесконечно) и linear (равномерная скорость). */
 @keyframes floatUp { 
   0% {
-    transform: translateY(0) scale(1);
-    opacity: 0;
+    transform: translateY(0) scale(1);   /* Стартовое положение */
+    opacity: 0;                          /* Прозрачный */
   }
   10% {
-    opacity: 1;
+    opacity: 1;                          /* Появление */
   }
   90% {
-    opacity: 1;
+    opacity: 1;                          /* Ещё видно */
   }
   100% {
-    transform: translateY(-250px) scale(1.1);
-    opacity: 0;
+    transform: translateY(-250px) scale(1.1);  /* Поднялся и чуть увеличился */
+    opacity: 0;                                /* Исчез */
   }
 }
