@@ -4,7 +4,6 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     # Параметры подключения к БД
-    # Пример строки: postgresql://user:password@localhost:5432/washmanager
     DATABASE_URL: str = "postgresql://postgres:1234@localhost:3000/washmanager"
 
     # Настройки API

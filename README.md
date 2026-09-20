@@ -42,6 +42,13 @@
 | **Register** | `/register` | Регистрация (демо). ФИО, комната, email, пароль. |
 
 ---
+## Инструкция запуска
+В консоль прописываем 
+- cd frontend
+- npm install
+- npm run dev
+- uvicorn app.main:app --reload(запуск БД)
+---
 
 ## 🛠 Стек технологий
 
@@ -61,6 +68,20 @@
 - **SQLAlchemy 2.0** — ORM для работы с БД
 - **Pydantic** — валидация данных и настройки
 - **Pydantic Settings** — чтение конфигурации из `.env`
+
+### Архитектура Backend
+
+    api/routes/ — HTTP-эндпоинты (роуты);
+
+    models/ — SQLAlchemy-модели (таблицы БД);
+
+    schemas/ — Pydantic-схемы для валидации;
+    
+    crud/ — бизнес-логика работы с БД;
+
+    db/ — подключение к БД и сессии;
+
+    core/ — конфигурация.
 
 ### Единое оформление (Frontend)
 
