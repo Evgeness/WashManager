@@ -47,7 +47,7 @@
 - cd frontend
 - npm install
 - npm run dev
-- uvicorn app.main:app --reload(запуск БД)
+- uvicorn app.main:app --reload(запуск Swagger)
 ---
 
 ## 🛠 Стек технологий
