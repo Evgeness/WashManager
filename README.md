@@ -47,31 +47,33 @@
 
 Проект использует упрощённую структуру на основе **Feature-Sliced Design**:
 
+```
 src/
-├── app/ # Настройка приложения (тема)
-│ └── theme.ts
-├── pages/ # Страницы (композиция фич и сущностей)
-│ ├── Dashboard.tsx
-│ ├── Schedule.tsx
-│ ├── MyBookings.tsx
-│ ├── Login.tsx
-│ └── Register.tsx
-├── features/ # Пользовательские действия
-│ └── booking-machine/ # Фича бронирования
-│ └── BookingForm.tsx
-├── entities/ # Сущности предметной области
-│ ├── machine/
-│ │ ├── types.ts
-│ │ └── MachineCard.tsx
-│ └── booking/
-│ └── types.ts
-└── shared/ # Общие модули и утилиты
-├── api/
-│ └── mockApi.ts # Мок-данные и имитация запросов
-└── ui/
-├── Layout.tsx
-├── Loader.tsx
-└── EmptyState.tsx
+├── app/                    # Настройка приложения (тема)
+│   └── theme.ts
+├── pages/                  # Страницы (композиция фич и сущностей)
+│   ├── Dashboard.tsx
+│   ├── Schedule.tsx
+│   ├── MyBookings.tsx
+│   ├── Login.tsx
+│   └── Register.tsx
+├── features/               # Пользовательские действия
+│   └── booking-machine/    # Фича бронирования
+│       └── BookingForm.tsx
+├── entities/               # Сущности предметной области
+│   ├── machine/
+│   │   ├── types.ts
+│   │   └── MachineCard.tsx
+│   └── booking/
+│       └── types.ts
+└── shared/                 # Общие модули и утилиты
+    ├── api/
+    │   └── mockApi.ts      # Мок-данные и имитация запросов
+    └── ui/
+        ├── Layout.tsx
+        ├── Loader.tsx
+        └── EmptyState.tsx
+```
 
 **Принцип:** каждый слой знает только о слоях ниже — `pages` → `features` → `entities` → `shared`.
 
