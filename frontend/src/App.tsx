@@ -3,7 +3,7 @@
 import { Routes, Route } from 'react-router-dom';
 
 // Импортируем все страницы приложения
-import Layout from './components/Layout';        // Общий каркас с шапкой
+import Layout from './shared/ui/Layout';        // Общий каркас с шапкой
 import Dashboard from './pages/Dashboard';       // Главная страница
 import Schedule from './pages/Schedule';         // Расписание
 import MyBookings from './pages/MyBookings';     // Мои брони

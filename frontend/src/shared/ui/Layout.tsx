@@ -3,7 +3,7 @@ import { Outlet, NavLink } from 'react-router-dom';
 // Outlet — место, куда рендерятся дочерние маршруты (страницы)
 // NavLink — как Link, но добавляет класс "active" для текущего маршрута
 
-import logo from '../assets/logo.png'; // Импорт логотипа (Vite сам соберёт путь)
+import logo from '../../assets/logo.png'; // Импорт логотипа (Vite сам соберёт путь)
 
 // ===== СТИЛЬ КНОПОК НАВИГАЦИИ =====
 // Вынесен отдельно, чтобы не дублировать у трёх кнопок.

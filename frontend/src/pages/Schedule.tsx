@@ -1,79 +1,87 @@
-import { useState } from 'react';   // Хук состояния
-import { 
-  Box, Typography, Card, CardContent, Stack, Tabs, Tab, Button, Divider 
-} from '@mui/material';
+import { useEffect, useState } from 'react';
+import { Box, Typography, Stack, Tabs, Tab, Fade, Alert } from '@mui/material';
+import BookingForm from '../features/booking-machine/BookingForm';
+import MachineCard from '../entities/machine/MachineCard';
+import Loader from '../shared/ui/Loader';
+import EmptyState from '../shared/ui/EmptyState';
+import { machines, dayLabels } from '../shared/api/mockApi';
 
-// ===== ДЕМОНСТРАЦИОННЫЕ ДАННЫЕ =====
-// Позже они будут заменены на данные из API.
-
-// Список машин
-const machines = [
-  { id: 1, name: 'Стиральная машина №1' },
-  { id: 2, name: 'Стиральная машина №2' },
-  { id: 3, name: 'Сушильная машина №1' },
-];
-
-// Возможные временные слоты
-const timeSlots = [
-  '08:00-10:00', '10:00-12:00', '12:00-14:00', 
-  '14:00-16:00', '16:00-18:00', '18:00-20:00', '20:00-22:00'
-];
 
 export default function Schedule() {
-  // Стейт: индекс выбранного дня (0 — сегодня, 1 — завтра, 2 — послезавтра)
   const [selectedDay, setSelectedDay] = useState(0);
+  const [selectedSlot, setSelectedSlot] = useState<{ machineId: number; time: string } | null>(null);
+  const [isFormOpen, setIsFormOpen] = useState(false);
 
-  // Стейт: выбранный пользователем слот (какая машина + время)
-  const [selectedSlot, setSelectedSlot] = useState<{ machineId: number, time: string } | null>(null);
+  // ===== Состояния загрузки / ошибки / пустоты =====
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [data, setData] = useState<typeof machines | null>(null);
 
-  // Обработчик переключения дня
+  useEffect(() => {
+    // Имитация загрузки
+    const load = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+        await new Promise((r) => setTimeout(r, 600));
+        if (machines.length === 0) {
+          setData([]);
+        } else {
+          setData(machines);
+        }
+      } catch {
+        setError('Не удалось загрузить расписание');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    load();
+  }, []);
+
   const handleDayChange = (_event: React.SyntheticEvent, newValue: number) => {
     setSelectedDay(newValue);
-    setSelectedSlot(null);      // Сбрасываем выбор при смене дня
+    setSelectedSlot(null);
+    setIsFormOpen(false);
   };
 
-  // Обработчик клика по слоту
   const handleSlotClick = (machineId: number, time: string, status: string) => {
     if (status === 'free') {
       setSelectedSlot({ machineId, time });
-      // В реальном приложении здесь было бы модальное окно подтверждения
-      alert(`Вы выбрали: Машина ${machineId}, Время: ${time}. Нажмите ОК для подтверждения.`);
+      setIsFormOpen(true);
     } else {
       alert('Этот слот уже занят или вы в очереди на него.');
     }
   };
 
-  // ===== ЛОГИКА СТАТУСА СЛОТА =====
-  // Демонстрационная: для "сегодня" некоторые слоты помечены как занятые/очередь.
-  // В реальном приложении статус придёт с backend.
-  const getStatus = (machineId: number, time: string, day: number) => {
-    if (day === 0) { // "Сегодня"
-      if (machineId === 1 && time === '10:00-12:00') return 'busy';
-      if (machineId === 1 && time === '12:00-14:00') return 'queue';
-      if (machineId === 2 && time === '08:00-10:00') return 'busy';
-      if (machineId === 3 && time === '18:00-20:00') return 'busy';
-    }
-    return 'free';   // По умолчанию — свободно
-  };
+  const selectedMachineName =
+    machines.find((m) => m.id === selectedSlot?.machineId)?.name ?? '';
 
-  // Возвращаем цвет MUI для статуса
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'busy':  return 'error';    // Красный
-      case 'queue': return 'warning';  // Жёлтый
-      default:      return 'success';  // Зелёный
-    }
-  };
+  // ===== СОСТОЯНИЕ 1: ЗАГРУЗКА =====
+  if (isLoading) {
+    return <Loader />;
+  }
 
-  // Возвращаем русскую подпись для статуса
-  const getStatusLabel = (status: string) => {
-    switch (status) {
-      case 'busy':  return 'Занято';
-      case 'queue': return 'Очередь';
-      default:      return 'Свободно';
-    }
-  };
+  // ===== СОСТОЯНИЕ 2: ОШИБКА =====
+  if (error) {
+    return (
+      <Box>
+        <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>
+        <EmptyState title="Ошибка" description="Попробуйте обновить страницу" />
+      </Box>
+    );
+  }
 
+  // ===== СОСТОЯНИЕ 3: ПУСТО =====
+  if (!data || data.length === 0) {
+    return (
+      <Box>
+        <Typography variant="h1" sx={{ mb: 2 }}>Расписание</Typography>
+        <EmptyState title="Машин пока нет" description="Обратитесь к администратору общежития" />
+      </Box>
+    );
+  }
+
+  // ===== СОСТОЯНИЕ 4: УСПЕХ =====
   return (
     <Box>
       <Typography variant="h1" sx={{ mb: 2 }}>Расписание</Typography>
@@ -81,68 +89,46 @@ export default function Schedule() {
         Выберите свободный слот для бронирования
       </Typography>
 
-      {/* ===== ВКЛАДКИ ПО ДНЯМ ===== 
-          value + onChange — контролируемый компонент. 
-          Tabs — стандартный компонент MUI, внутри — Tab. */}
       <Tabs value={selectedDay} onChange={handleDayChange} sx={{ mb: 4 }}>
-        <Tab label="Сегодня" />
-        <Tab label="Завтра" />
-        <Tab label="15 июня" />
+        {dayLabels.map((label) => (
+          <Tab key={label} label={label} />
+        ))}
       </Tabs>
 
-      {/* ===== СПИСОК МАШИН ===== 
-          Для каждой машины — отдельная карточка со слотами. */}
-      <Stack spacing={3}>
-        {machines.map((machine) => (
-          <Card key={machine.id}>
-            <CardContent>
-              <Typography variant="h3" sx={{ mb: 2 }}>
-                {machine.name}
-              </Typography>
-              <Divider sx={{ mb: 2 }} />
-              
-              {/* Слоты машины: flex-wrap позволяет переносить кнопки на новую строку.
-                  useFlexGap — MUI-специфичный проп для правильных отступов между строками. */}
-              <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }} useFlexGap>
-                {timeSlots.map((time) => {
-                  // Определяем статус этого слота
-                  const status = getStatus(machine.id, time, selectedDay);
-                  
-                  // Проверяем, выбран ли этот слот пользователем
-                  const isSelected = selectedSlot?.machineId === machine.id && selectedSlot?.time === time;
-                  
-                  return (
-                    <Button
-                      key={time}
-                      // Свободные — outlined (без заливки), занятые/очередь — contained (с заливкой)
-                      variant={status === 'free' ? 'outlined' : 'contained'}
-                      // Приводим тип к any, т.к. MUI ожидает строгий union цветов
-                      color={getStatusColor(status) as any}
-                      onClick={() => handleSlotClick(machine.id, time, status)}
-                      sx={{ 
-                        flexDirection: 'column',  // Иконка+текст вертикально
-                        py: 1, 
-                        minWidth: 110,
-                        // Белая рамка, если слот выбран
-                        border: isSelected ? '2px solid #fff' : undefined,
-                      }}
-                    >
-                      {/* Время начала */}
-                      <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
-                        {time.split('-')[0]}
-                      </Typography>
-                      {/* Статус */}
-                      <Typography variant="caption">
-                        {getStatusLabel(status)}
-                      </Typography>
-                    </Button>
-                  );
-                })}
-              </Stack>
-            </CardContent>
-          </Card>
-        ))}
-      </Stack>
+      <Fade in timeout={600}>
+        <Stack spacing={3}>
+          {data.map((machine) => (
+            <MachineCard
+              key={machine.id}
+              machine={machine}
+              day={selectedDay}
+              selectedSlot={selectedSlot}
+              onSlotClick={handleSlotClick}
+            />
+          ))}
+        </Stack>
+      </Fade>
+
+      <BookingForm
+        open={isFormOpen}
+        onClose={() => {
+          setIsFormOpen(false);
+          setSelectedSlot(null);
+        }}
+        machineName={selectedMachineName}
+        dateLabel={dayLabels[selectedDay]}
+        timeLabel={selectedSlot?.time ?? ''}
+        onConfirm={() => {
+          alert(
+            `Бронь подтверждена!\n` +
+            `Машина: ${selectedMachineName}\n` +
+            `Дата: ${dayLabels[selectedDay]}\n` +
+            `Время: ${selectedSlot?.time}`
+          );
+          setIsFormOpen(false);
+          setSelectedSlot(null);
+        }}
+      />
     </Box>
   );
 }

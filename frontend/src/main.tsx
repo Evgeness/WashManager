@@ -14,7 +14,7 @@ import CssBaseline from '@mui/material/CssBaseline';
 import { BrowserRouter } from 'react-router-dom';
 
 // Наша кастомная тема и главный компонент
-import { theme } from './app/theme';
+import { theme } from './app/theme/theme';
 import App from './App';
 
 // Глобальные CSS-стили (шрифты, сбросы, @keyframes)
