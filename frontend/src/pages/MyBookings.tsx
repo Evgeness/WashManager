@@ -1,7 +1,10 @@
 import { useEffect, useState } from 'react';
 import {
-  Box, Typography, Card, CardContent, Tabs, Tab, Stack, Button, Chip, Fade, Alert
+  Box, Typography, Card, CardContent, Tabs, Tab, Stack, Button, Chip,
+  Fade, Alert, Dialog, DialogTitle, DialogContent, DialogActions,
+  IconButton
 } from '@mui/material';
+import { Close, WarningAmber } from '@mui/icons-material';
 import Loader from '../shared/ui/Loader';
 import EmptyState from '../shared/ui/EmptyState';
 import { fetchBookings } from '../shared/api/mockApi';
@@ -13,6 +16,10 @@ export default function MyBookings() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // ===== Состояние для модалки отмены =====
+  // Храним id брони, которую хотим отменить. null — окно закрыто.
+  const [cancelBookingId, setCancelBookingId] = useState<number | null>(null);
 
   useEffect(() => {
     const load = async () => {
@@ -34,9 +41,25 @@ export default function MyBookings() {
     setTabValue(newValue);
   };
 
-  const handleCancel = (id: number) => {
-    if (window.confirm('Вы уверены, что хотите отменить бронирование?')) {
-      alert(`Бронирование ${id} отменено (демо)`);
+  // Открыть окно подтверждения отмены
+  const handleCancelClick = (id: number) => {
+    setCancelBookingId(id);
+  };
+
+  // Закрыть окно без отмены
+  const handleCancelClose = () => {
+    setCancelBookingId(null);
+  };
+
+  // Подтвердить отмену
+  const handleCancelConfirm = () => {
+    if (cancelBookingId !== null) {
+      // Здесь будет запрос к API: DELETE /bookings/{id}
+      setBookings((prev) =>
+        prev.filter((b) => b.id !== cancelBookingId)
+      );
+      alert(`Бронирование №${cancelBookingId} отменено`);
+      setCancelBookingId(null);
     }
   };
 
@@ -55,10 +78,10 @@ export default function MyBookings() {
     }
   };
 
-  // ===== ЗАГРУЗКА =====
+  // ===== СОСТОЯНИЕ 1: ЗАГРУЗКА =====
   if (isLoading) return <Loader />;
 
-  // ===== ОШИБКА =====
+  // ===== СОСТОЯНИЕ 2: ОШИБКА =====
   if (error) {
     return (
       <Box>
@@ -67,6 +90,9 @@ export default function MyBookings() {
       </Box>
     );
   }
+
+  // Данные для отображаемой брони (для показа в модалке)
+  const bookingToCancel = bookings.find((b) => b.id === cancelBookingId);
 
   return (
     <Box sx={{ maxWidth: 800, mx: 'auto' }}>
@@ -114,7 +140,7 @@ export default function MyBookings() {
                         variant="outlined"
                         color="error"
                         size="small"
-                        onClick={() => handleCancel(booking.id)}
+                        onClick={() => handleCancelClick(booking.id)}
                       >
                         Отменить
                       </Button>
@@ -126,6 +152,53 @@ export default function MyBookings() {
           )}
         </Stack>
       </Fade>
+
+      {/* ===== МОДАЛЬНОЕ ОКНО ПОДТВЕРЖДЕНИЯ ОТМЕНЫ ===== */}
+      <Dialog
+        open={cancelBookingId !== null}
+        onClose={handleCancelClose}
+        maxWidth="xs"
+        fullWidth
+        slotProps={{ paper: { sx: { borderRadius: 3 } } }}
+      >
+        <DialogTitle
+          sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
+        >
+          Отмена брони
+          <IconButton onClick={handleCancelClose} size="small">
+            <Close />
+          </IconButton>
+        </DialogTitle>
+
+        <DialogContent>
+          {/* Иконка предупреждения — без круга */}
+          <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
+            <WarningAmber sx={{ fontSize: 48, color: 'error.main' }} />
+          </Box>
+
+          <Typography variant="h3" sx={{ textAlign: 'center', mb: 1 }}>
+            Вы уверены?
+          </Typography>
+
+          <Typography color="text.secondary" sx={{ textAlign: 'center', mb: 2 }}>
+            Бронь на <strong>{bookingToCancel?.machineName}</strong> <br />
+            {bookingToCancel?.date}, {bookingToCancel?.time}
+          </Typography>
+
+          <Typography color="text.secondary" sx={{ textAlign: 'center', fontSize: '0.85rem' }}>
+            Это действие нельзя отменить
+          </Typography>
+        </DialogContent>
+
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={handleCancelClose} variant="outlined">
+            Нет, оставить
+          </Button>
+          <Button onClick={handleCancelConfirm} variant="contained" color="error" autoFocus>
+            Да, отменить
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

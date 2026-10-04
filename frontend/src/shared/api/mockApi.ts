@@ -58,6 +58,10 @@ export const fetchBookings = async (): Promise<Booking[]> => {
 
 export const fetchDashboardData = async (): Promise<DashboardData> => {
   await delay(800);
+
+  // throw new Error('Test error'); 
+  // return null as any; 
+
   return {
     nearestBooking: {
       machineName: 'Стиральная машина №3',
