@@ -10,25 +10,56 @@ import MyBookings from './pages/MyBookings';     // Мои брони
 import Login from './pages/Login';               // Вход
 import Register from './pages/Register';         // Регистрация
 
+// Защита приватных страниц: если пользователь не авторизован —
+// редиректит на /login, а во время проверки токена показывает Loader
+import ProtectedRoute from './shared/ui/ProtectedRoute';
+
+
 export default function App() {
   return (
     <Routes>
-      {/* ===== СТРАНИЦЫ БЕЗ ШАПКИ ===== 
-          Логин и регистрация отображаются отдельно — 
-          без навигации, чтобы пользователь сфокусировался на форме. */}
+      {/* ===== СТРАНИЦЫ БЕЗ ШАПКИ =====
+          Логин и регистрация отображаются отдельно —
+          без навигации, чтобы пользователь сфокусировался на форме.
+          Эти страницы ПУБЛИЧНЫЕ — доступны без авторизации. */}
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
 
-      {/* ===== СТРАНИЦЫ С ОБЩИМ КАРКАСОМ ===== 
+      {/* ===== СТРАНИЦЫ С ОБЩИМ КАРКАСОМ =====
           Вложенные маршруты: Layout рендерит шапку и <Outlet />,
-          а внутрь <Outlet /> подставляются дочерние страницы. */}
+          а внутрь <Outlet /> подставляются дочерние страницы.
+
+          Каждая страница обёрнута в <ProtectedRoute> — это значит,
+          что пользователь должен быть авторизован. */}
       <Route path="/" element={<Layout />}>
         {/* index — это маршрут по умолчанию, т.е. "/" */}
-        <Route index element={<Dashboard />} />
-        
+        <Route
+          index
+          element={
+            <ProtectedRoute>
+              <Dashboard />
+            </ProtectedRoute>
+          }
+        />
+
         {/* Относительные пути: "/schedule", "/my-bookings" */}
-        <Route path="schedule" element={<Schedule />} />
-        <Route path="my-bookings" element={<MyBookings />} />
+        <Route
+          path="schedule"
+          element={
+            <ProtectedRoute>
+              <Schedule />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="my-bookings"
+          element={
+            <ProtectedRoute>
+              <MyBookings />
+            </ProtectedRoute>
+          }
+        />
       </Route>
     </Routes>
   );

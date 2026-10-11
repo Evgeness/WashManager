@@ -5,28 +5,36 @@ from app.core.config import settings
 from app.db.base import Base
 from app.db.session import engine
 
+# Импорт всех моделей — чтобы SQLAlchemy видел таблицы
+from app.models import machine, booking, user, refresh_token  # noqa
 
-from app.models import machine, booking  # noqa
+from app.api.routes import auth, machines, bookings
 
-from app.api.routes import machines, bookings
-
-# Создаём таблицы при старте.
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title=settings.APP_NAME)
 
-# Разрешаем CORS, чтобы фронтенд (localhost:3000) мог обращаться к API
+
+# ===== CORS =====
+# Middleware нужно добавлять ДО include_router.
+# allow_methods=["*"] обязательно включает OPTIONS — без него браузер
+# не сможет сделать preflight и все POST-запросы будут падать.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    ],
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["*"],       #включает OPTIONS
+    allow_headers=["*"],       #включает Content-Type и Authorization
 )
 
-# Подключаем роуты
+# ===== ПОДКЛЮЧЕНИЕ РОУТОВ =====
+app.include_router(auth.router)
 app.include_router(machines.router)
 app.include_router(bookings.router)
+
 
 @app.get("/")
 def root():

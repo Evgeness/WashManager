@@ -6,10 +6,12 @@ import {
 import { Visibility, VisibilityOff } from '@mui/icons-material';
 import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import logo from '../assets/logo.png';
+import { authApi } from '../shared/api/authApi';
+import { useAuth } from '../shared/context/AuthContext';
 
 
 interface FormErrors {
-  name?: string;
+  full_name?: string;
   room?: string;
   email?: string;
   password?: string;
@@ -19,60 +21,51 @@ interface FormErrors {
 
 export default function Register() {
   const navigate = useNavigate();
+  const { login } = useAuth();               // используем login для автологина после регистрации
+
   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
-    name: '', room: '', email: '', password: '', confirmPassword: '',
+    full_name: '', room: '', email: '', password: '', confirmPassword: '',
   });
   const [errors, setErrors] = useState<FormErrors>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [serverError, setServerError] = useState<string | null>(null);
 
-  // ===== ОБРАБОТЧИК ИЗМЕНЕНИЙ =====
+ 
   const handleChange = (field: string) => (e: React.ChangeEvent<HTMLInputElement>) => {
     let value = e.target.value;
-
-    // Особый случай: поле «номер комнаты» — пропускаем только цифры
     if (field === 'room') {
-      value = value.replace(/\D/g, ''); // удаляем всё, что не цифра
-      value = value.slice(0, 4);        // максимум 4 символа
+      value = value.replace(/\D/g, '').slice(0, 4);   // только цифры, максимум 4
     }
-
     setFormData({ ...formData, [field]: value });
   };
 
-  // ===== ВАЛИДАЦИЯ =====
+
   const validate = () => {
     const newErrors: FormErrors = {};
 
-    // --- ФИО ---
-    if (!formData.name.trim()) {
-      newErrors.name = 'Введите ФИО';
-    } else if (formData.name.trim().split(/\s+/).length < 2) {
-      newErrors.name = 'Укажите имя и фамилию';
+    if (!formData.full_name.trim()) {
+      newErrors.full_name = 'Введите ФИО';
+    } else if (formData.full_name.trim().split(/\s+/).length < 2) {
+      newErrors.full_name = 'Укажите имя и фамилию';
     }
 
-    // --- Номер комнаты (только цифры) ---
-    if (!formData.room.trim()) {
+    if (!formData.room) {
       newErrors.room = 'Введите номер комнаты';
-    } else if (!/^\d+$/.test(formData.room)) {
-      newErrors.room = 'Номер комнаты должен содержать только цифры';
-    } else if (formData.room.length > 4) {
-      newErrors.room = 'Номер комнаты не может быть длиннее 4 цифр';
     }
 
-    // --- Email ---
     if (!formData.email) {
       newErrors.email = 'Введите email';
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
       newErrors.email = 'Некорректный формат email';
     }
 
-    // --- Пароль ---
     if (!formData.password) {
       newErrors.password = 'Введите пароль';
     } else if (formData.password.length < 6) {
       newErrors.password = 'Пароль должен содержать минимум 6 символов';
     }
 
-    // --- Подтверждение пароля ---
     if (formData.password !== formData.confirmPassword) {
       newErrors.confirmPassword = 'Пароли не совпадают';
     }
@@ -81,12 +74,38 @@ export default function Register() {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+ // ===== ОТПРАВКА =====
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setServerError(null);
+
     if (!validate()) return;
-    alert(`Регистрация успешна (демо)\nИмя: ${formData.name}\nКомната: ${formData.room}`);
-    navigate('/');
+
+    setIsSubmitting(true);
+    try {
+      // 1. Регистрация через API
+      await authApi.register({
+        full_name: formData.full_name.trim(),
+        room: formData.room,
+        email: formData.email,
+        password: formData.password,
+      });
+
+      // 2. Автоматический вход после регистрации
+      await login(formData.email, formData.password);
+
+      // 3. Редирект на главную
+      navigate('/');
+    } catch (err) {
+      const message = err instanceof Error
+        ? err.message
+        : 'Не удалось зарегистрироваться. Попробуйте позже.';
+      setServerError(message);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
+
 
   return (
     <Box
@@ -113,18 +132,23 @@ export default function Register() {
 
             <Box component="form" onSubmit={handleSubmit} noValidate>
               <Stack spacing={2.5}>
+
+                {serverError && (
+                  <Alert severity="error" onClose={() => setServerError(null)}>
+                    {serverError}
+                  </Alert>
+                )}
+
                 <TextField
                   label="ФИО"
-                  value={formData.name}
-                  onChange={handleChange('name')}
+                  value={formData.full_name}
+                  onChange={handleChange('full_name')}
                   placeholder="Иванов Иван Иванович"
-                  error={!!errors.name}
-                  helperText={errors.name}
+                  error={!!errors.full_name}
+                  helperText={errors.full_name}
+                  disabled={isSubmitting}
                 />
 
-                {/* ===== ПОЛЕ НОМЕРА КОМНАТЫ ===== 
-                    inputMode="numeric" — на мобильных откроется цифровая клавиатура
-                    onChange фильтрует всё, кроме цифр */}
                 <TextField
                   label="Номер комнаты"
                   value={formData.room}
@@ -132,12 +156,9 @@ export default function Register() {
                   placeholder="Например, 412"
                   error={!!errors.room}
                   helperText={errors.room || 'Только цифры, максимум 4 символа'}
+                  disabled={isSubmitting}
                   slotProps={{
-                    htmlInput: {
-                      inputMode: 'numeric',      // цифровая клавиатура на мобильных
-                      pattern: '[0-9]*',         // HTML5-валидация
-                      maxLength: 4,              // ограничение длины
-                    },
+                    htmlInput: { inputMode: 'numeric', pattern: '[0-9]*', maxLength: 4 },
                   }}
                 />
 
@@ -149,6 +170,7 @@ export default function Register() {
                   placeholder="student@example.com"
                   error={!!errors.email}
                   helperText={errors.email}
+                  disabled={isSubmitting}
                 />
 
                 <TextField
@@ -158,6 +180,7 @@ export default function Register() {
                   onChange={handleChange('password')}
                   error={!!errors.password}
                   helperText={errors.password}
+                  disabled={isSubmitting}
                   slotProps={{
                     input: {
                       endAdornment: (
@@ -178,10 +201,18 @@ export default function Register() {
                   onChange={handleChange('confirmPassword')}
                   error={!!errors.confirmPassword}
                   helperText={errors.confirmPassword}
+                  disabled={isSubmitting}
                 />
 
-                <Button type="submit" variant="contained" size="large" fullWidth sx={{ mt: 1 }}>
-                  Создать аккаунт
+                <Button
+                  type="submit"
+                  variant="contained"
+                  size="large"
+                  fullWidth
+                  sx={{ mt: 1 }}
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? 'Создаём...' : 'Создать аккаунт'}
                 </Button>
               </Stack>
             </Box>

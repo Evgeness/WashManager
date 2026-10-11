@@ -1,3 +1,5 @@
+// ===== ИМПОРТЫ =====
+
 // StrictMode — включает дополнительные проверки React в dev-режиме
 import { StrictMode } from 'react';
 
@@ -17,8 +19,15 @@ import { BrowserRouter } from 'react-router-dom';
 import { theme } from './app/theme/theme';
 import App from './App';
 
+// Провайдер аутентификации — даёт доступ к текущему пользователю
+// через хук useAuth() в любом компоненте приложения
+import { AuthProvider } from './shared/context/AuthContext';
+
 // Глобальные CSS-стили (шрифты, сбросы, @keyframes)
 import './index.css';
+
+
+// ===== РЕНДЕР =====
 
 // Находим корневой DOM-элемент и рендерим приложение.
 // "!" в конце — это TypeScript-утверждение, что элемент точно существует.
@@ -28,10 +37,15 @@ createRoot(document.getElementById('root')!).render(
     <ThemeProvider theme={theme}>
       {/* CssBaseline — применяет базовые стили MUI (тёмный фон и т.д.) */}
       <CssBaseline />
-      
+
       {/* BrowserRouter — даёт доступ к useNavigate, Link, NavLink */}
       <BrowserRouter>
-        <App />
+        {/* AuthProvider — даёт доступ к useAuth() везде внутри.
+            Внутри при монтировании автоматически вызывается /auth/me,
+            чтобы восстановить сессию при перезагрузке страницы. */}
+        <AuthProvider>
+          <App />
+        </AuthProvider>
       </BrowserRouter>
     </ThemeProvider>
   </StrictMode>

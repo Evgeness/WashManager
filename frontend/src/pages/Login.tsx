@@ -7,13 +7,25 @@ import { Visibility, VisibilityOff } from '@mui/icons-material';
 import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import logo from '../assets/logo.png';
 
+// Хук аутентификации — даёт функцию login и состояние
+import { useAuth } from '../shared/context/AuthContext';
+
 
 export default function Login() {
   const navigate = useNavigate();
+  const { login } = useAuth();                        // ← функция входа
+
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
+
+  // Состояние отправки: блокирует кнопку и показывает «Вход...»
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Ошибка от сервера (неверный пароль, пользователь не найден)
+  const [serverError, setServerError] = useState<string | null>(null);
+
 
   // ===== ВАЛИДАЦИЯ =====
   const validate = () => {
@@ -35,12 +47,32 @@ export default function Login() {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!validate()) return;
-    alert(`Вход выполнен (демо)\nEmail: ${email}`);
-    navigate('/');
+
+  // ===== ОТПРАВКА ФОРМЫ =====
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault(); // не даём браузеру перезагрузить страницу
+    setServerError(null); // чистим предыдущую ошибку
+
+    if (!validate()) return; // если валидация не прошла — выходим
+ 
+    setIsSubmitting(true);
+    try {
+      // Реальный запрос к backend: POST /auth/login
+      // Затем автоматически GET /auth/me для получения данных пользователя
+      await login(email, password);
+      navigate('/');                                   // редирект на главную
+    } catch (err) {
+      // Если 401 — «Неверный email или пароль»
+      // Если сеть упала — другое сообщение
+      const message = err instanceof Error
+        ? err.message
+        : 'Не удалось войти. Попробуйте позже.';
+      setServerError(message);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
+
 
   return (
     <Box
@@ -67,6 +99,15 @@ export default function Login() {
 
             <Box component="form" onSubmit={handleSubmit} noValidate>
               <Stack spacing={2.5}>
+
+                {/* Ошибка от сервера (неверные credentials) */}
+                {serverError && (
+                  <Alert severity="error" onClose={() => setServerError(null)}>
+                    {serverError}
+                  </Alert>
+                )}
+
+                {/* Ошибки клиентской валидации */}
                 {errors.email && <Alert severity="error">{errors.email}</Alert>}
                 {errors.password && <Alert severity="error">{errors.password}</Alert>}
 
@@ -77,6 +118,7 @@ export default function Login() {
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="student@example.com"
                   error={!!errors.email}
+                  disabled={isSubmitting}
                 />
 
                 <TextField
@@ -85,11 +127,15 @@ export default function Login() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   error={!!errors.password}
+                  disabled={isSubmitting}
                   slotProps={{
                     input: {
                       endAdornment: (
                         <InputAdornment position="end">
-                          <IconButton onClick={() => setShowPassword(!showPassword)} edge="end">
+                          <IconButton
+                            onClick={() => setShowPassword(!showPassword)}
+                            edge="end"
+                          >
                             {showPassword ? <VisibilityOff /> : <Visibility />}
                           </IconButton>
                         </InputAdornment>
@@ -98,8 +144,15 @@ export default function Login() {
                   }}
                 />
 
-                <Button type="submit" variant="contained" size="large" fullWidth sx={{ mt: 1 }}>
-                  Войти
+                <Button
+                  type="submit"
+                  variant="contained"
+                  size="large"
+                  fullWidth
+                  sx={{ mt: 1 }}
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? 'Вход...' : 'Войти'}
                 </Button>
               </Stack>
             </Box>
