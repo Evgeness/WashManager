@@ -107,49 +107,51 @@ markdown
 
 ## 🏗 Архитектура Backend
 
+```
 backend/app/
 ├── api/
-│ ├── deps.py # Зависимости: get_db, get_current_user
-│ └── routes/
-│ ├── auth.py # Регистрация, login, refresh, logout, me
-│ ├── machines.py # CRUD машин
-│ └── bookings.py # CRUD броней (только свои)
+│   ├── deps.py              # Зависимости: get_db, get_current_user
+│   └── routes/
+│       ├── auth.py          # Регистрация, login, refresh, logout, me
+│       ├── machines.py      # CRUD машин
+│       └── bookings.py      # CRUD броней (только свои)
 ├── core/
-│ ├── config.py # Настройки из .env (JWT, БД)
-│ └── security.py # bcrypt + JWT (encode/decode)
+│   ├── config.py            # Настройки из .env (JWT, БД)
+│   └── security.py          # bcrypt + JWT (encode/decode)
 ├── crud/
-│ ├── user.py # Работа с User
-│ ├── refresh_token.py # Работа с RefreshToken
-│ ├── machine.py
-│ └── booking.py
+│   ├── user.py              # Работа с User
+│   ├── refresh_token.py     # Работа с RefreshToken
+│   ├── machine.py
+│   └── booking.py
 ├── db/
-│ ├── base.py # DeclarativeBase
-│ └── session.py # Engine + SessionLocal
+│   ├── base.py              # DeclarativeBase
+│   └── session.py           # Engine + SessionLocal
 ├── models/
-│ ├── user.py # User (id, full_name, room, email, hashed_password)
-│ ├── refresh_token.py # RefreshToken (token, user_id, revoked)
-│ ├── machine.py
-│ └── booking.py # + user_id (FK)
+│   ├── user.py              # User (id, full_name, room, email, hashed_password)
+│   ├── refresh_token.py     # RefreshToken (token, user_id, revoked)
+│   ├── machine.py
+│   └── booking.py           # + user_id (FK)
 ├── schemas/
-│ ├── auth.py # RegisterRequest, LoginRequest, TokenResponse
-│ ├── machine.py
-│ └── booking.py
-└── main.py # FastAPI + CORS + include_router
-text
+│   ├── auth.py              # RegisterRequest, LoginRequest, TokenResponse
+│   ├── machine.py
+│   └── booking.py
+└── main.py                  # FastAPI + CORS + include_router
+```
 
 
-### Модель данных
+## 🗄 Модель данных
 
-User (users) Booking (bookings)
-───────────────── ──────────────────
-id (PK) id (PK)
-full_name machine_id (FK → machines.id)
-room user_id (FK → users.id) ← ЛР №4
-email (UNIQUE) start_time
-hashed_password end_time
-status
-bookings: list[Booking] ◄───────► user: User
-machine: Machine
+```
+User (users)                       Booking (bookings)
+─────────────────                  ──────────────────
+id (PK)                            id (PK)
+full_name                          machine_id (FK → machines.id)
+room                               user_id (FK → users.id)   ← ЛР №4
+email (UNIQUE)                     start_time
+hashed_password                    end_time
+                                   status
+bookings: list[Booking]  ◄───────► user: User
+                                   machine: Machine
 
 RefreshToken (refresh_tokens)
 ─────────────────────────────
@@ -158,49 +160,49 @@ token (UNIQUE)
 user_id (FK → users.id)
 expires_at
 revoked
-text
+```
 
-
----
+**Связи:**
+- `User` → `Booking` — One-to-Many (`user.bookings`, `booking.user`)
+- `Machine` → `Booking` — One-to-Many (`machine.bookings`, `booking.machine`)
+- `User` → `RefreshToken` — One-to-Many (для возможности отзыва)
 
 ## 🏗 Архитектура Frontend (FSD-lite)
 
+```
 src/
-├── app/ # Настройка приложения (тема)
-│ └── theme.ts
-├── pages/ # Страницы
-│ ├── Dashboard.tsx
-│ ├── Schedule.tsx
-│ ├── MyBookings.tsx
-│ ├── Login.tsx # ← связано с useAuth
-│ └── Register.tsx # ← связано с authApi
-├── features/ # Пользовательские действия
-│ └── booking-machine/
-│ └── BookingForm.tsx
-├── entities/ # Сущности предметной области
-│ ├── machine/
-│ │ ├── types.ts
-│ │ └── MachineCard.tsx
-│ └── booking/
-│ └── types.ts
-└── shared/ # Общие модули
-├── api/
-│ ├── client.ts # fetch + авто-обновление токена ← ЛР №4
-│ ├── authApi.ts # login / register / logout / me ← ЛР №4
-│ └── mockApi.ts # мок-данные (расписание)
-├── context/
-│ └── AuthContext.tsx # Глобальное состояние пользователя ← ЛР №4
-└── ui/
-├── Layout.tsx # Шапка + кнопка «Выйти»
-├── Loader.tsx
-├── EmptyState.tsx
-└── ProtectedRoute.tsx # Защита приватных маршрутов ← ЛР №4
-text
-
+├── app/                    # Настройка приложения (тема)
+│   └── theme.ts
+├── pages/                  # Страницы
+│   ├── Dashboard.tsx
+│   ├── Schedule.tsx
+│   ├── MyBookings.tsx
+│   ├── Login.tsx           # ← связано с useAuth
+│   └── Register.tsx        # ← связано с authApi
+├── features/               # Пользовательские действия
+│   └── booking-machine/
+│       └── BookingForm.tsx
+├── entities/               # Сущности предметной области
+│   ├── machine/
+│   │   ├── types.ts
+│   │   └── MachineCard.tsx
+│   └── booking/
+│       └── types.ts
+└── shared/                 # Общие модули
+    ├── api/
+    │   ├── client.ts       # fetch + авто-обновление токена   ← ЛР №4
+    │   ├── authApi.ts      # login / register / logout / me  ← ЛР №4
+    │   └── mockApi.ts      # мок-данные (расписание)
+    ├── context/
+    │   └── AuthContext.tsx # Глобальное состояние пользователя  ← ЛР №4
+    └── ui/
+        ├── Layout.tsx      # Шапка + кнопка «Выйти»
+        ├── Loader.tsx
+        ├── EmptyState.tsx
+        └── ProtectedRoute.tsx  # Защита приватных маршрутов  ← ЛР №4
+```
 
 **Принцип FSD:** каждый слой знает только о слоях ниже — `pages` → `features` → `entities` → `shared`.
-
----
 
 ## 🎛 Состояния экранов
 
@@ -293,7 +295,10 @@ text
 ## 🚀 Инструкция запуска
 
 ### Требования
-- **Node.js** 18+, **Python** 3.12, **PostgreSQL** 15+
+
+- **Node.js** 18+, **npm** 9+
+- **Python** 3.12
+- **PostgreSQL** 15+
 
 ### Frontend
 
@@ -301,77 +306,68 @@ text
 cd frontend
 npm install
 npm run dev
+```
 
-Приложение: http://localhost:5173
-Backend
-bash
+Приложение: **http://localhost:5173**
 
+### Backend
+
+```bash
 cd backend
 python -m venv venv
 venv\Scripts\activate          # Windows
+# source venv/bin/activate     # Mac/Linux
 
 pip install -r requirements.txt
 uvicorn app.main:app --reload
+```
 
-Swagger UI: http://127.0.0.1:8000/docs
-Переменные окружения (backend/.env)
-env
+Swagger UI: **http://127.0.0.1:8000/docs**
 
+### Переменные окружения (`backend/.env`)
+
+```env
 DATABASE_URL=postgresql://postgres:1234@localhost:3000/washmanager
-SECRET_KEY=<сгенерировать случайную строку 64+ символа>
+SECRET_KEY=<случайная строка 64+ символа>
 ACCESS_TOKEN_EXPIRE_MINUTES=30
 REFRESH_TOKEN_EXPIRE_DAYS=7
+```
 
-Генерация SECRET_KEY:
-bash
+Генерация `SECRET_KEY`:
 
+```bash
 python -c "import secrets; print(secrets.token_urlsafe(64))"
+```
 
-🛠 Стек технологий
-Frontend
+## 🛠 Стек технологий
 
-    React 18 — библиотека для интерфейсов
+### Frontend
 
-    TypeScript — статическая типизация
+- **React 18** — библиотека для интерфейсов
+- **TypeScript** — статическая типизация
+- **Vite** — сборщик и dev-сервер
+- **React Router v6** — клиентская маршрутизация
+- **MUI (Material UI) v6** — UI-компоненты
+- **MUI Icons** — набор иконок
 
-    Vite — сборщик и dev-сервер
+### Backend
 
-    React Router v6 — клиентская маршрутизация
+- **FastAPI** — веб-фреймворк
+- **Uvicorn** — ASGI-сервер
+- **PostgreSQL** — БД
+- **SQLAlchemy 2.0** — ORM
+- **Pydantic** — валидация данных
+- **Pydantic Settings** — конфигурация из `.env`
+- **python-jose** — JWT-токены
+- **passlib[bcrypt]** — хэширование паролей
+- **email-validator** — валидация email
 
-    MUI (Material UI) v6 — UI-компоненты
+### Единое оформление
 
-    MUI Icons — набор иконок
+Все компоненты используют общую тему `src/app/theme.ts`:
 
-Backend
-
-    FastAPI — веб-фреймворк
-
-    Uvicorn — ASGI-сервер
-
-    PostgreSQL — БД
-
-    SQLAlchemy 2.0 — ORM
-
-    Pydantic — валидация данных
-
-    Pydantic Settings — конфигурация из .env
-
-    python-jose — JWT-токены
-
-    passlib[bcrypt] — хэширование паролей
-
-    email-validator — валидация email
-
-Единое оформление
-
-Все компоненты используют общую тему src/app/theme.ts:
-
-    🌙 Тёмная тема (mode: 'dark')
-
-    🎨 Палитра: синий (primary), голубой (secondary), зелёный (success), жёлтый (warning), красный (error)
-
-    📐 Скруглённые углы: borderRadius: 10 / 14 для карточек
-
-    🔤 Шрифт Inter
-
-    📱 Адаптивность: сетки xs / md, Container maxWidth={false}
+- 🌙 **Тёмная тема** (`mode: 'dark'`)
+- 🎨 **Палитра:** синий (`primary`), голубой (`secondary`), зелёный (`success`), жёлтый (`warning`), красный (`error`)
+- 📐 **Скруглённые углы:** `borderRadius: 10` / `14` для карточек
+- 🔤 **Шрифт Inter**
+- 📱 **Адаптивность:** сетки `xs` / `md`, `Container maxWidth={false}`
