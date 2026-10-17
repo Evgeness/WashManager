@@ -33,6 +33,12 @@ export const bookingApi = {
       body: JSON.stringify(data),
     }),
 
+  // Завершить бронь досрочно
+  complete: (id: number) => 
+    apiRequest<BackendBookingResponse>(`/bookings/${id}/complete`, { 
+      method: 'PATCH' 
+    }),
+
   delete: (id: number) => 
     apiRequest<void>(`/bookings/${id}`, { method: 'DELETE' }),
 };

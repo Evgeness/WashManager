@@ -4,7 +4,7 @@ import {
   Fade, Alert, Dialog, DialogTitle, DialogContent, DialogActions, IconButton,
   Snackbar
 } from '@mui/material';
-import { Close, WarningAmber } from '@mui/icons-material';
+import { Close, WarningAmber, CheckCircleOutlined } from '@mui/icons-material';
 import Loader from '../shared/ui/Loader';
 import EmptyState from '../shared/ui/EmptyState';
 import { bookingApi, type BackendBookingResponse } from '../shared/api/bookingApi';
@@ -13,7 +13,6 @@ import type { Booking } from '../entities/booking/types';
 const mapBackendBooking = (b: BackendBookingResponse): Booking => {
   const start = new Date(b.start_time);
   const end = new Date(b.end_time);
-  
   const time = `${start.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })} – ${end.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}`;
   const date = start.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' });
 
@@ -33,12 +32,13 @@ export default function MyBookings() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Состояния для модалок
   const [cancelBookingId, setCancelBookingId] = useState<number | null>(null);
-  const [isCanceling, setIsCanceling] = useState(false);
+  const [completeBookingId, setCompleteBookingId] = useState<number | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
   
-  const [snackbar, setSnackbar] = useState({ open: false, message: '' });
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' });
 
-  // ДОБАВЛЕН ПАРАМЕТР silent ДЛЯ ФОНОВОГО ОБНОВЛЕНИЯ
   const loadBookings = async (silent = false) => {
     try {
       if (!silent) setIsLoading(true);
@@ -53,14 +53,8 @@ export default function MyBookings() {
   };
 
   useEffect(() => {
-    // Первичная загрузка (с лоадером)
     loadBookings();
-
-    // Авто-обновление каждые 5 секунд (без лоадера)
-    const interval = setInterval(() => {
-      loadBookings(true);
-    }, 5000);
-
+    const interval = setInterval(() => loadBookings(true), 5000);
     return () => clearInterval(interval);
   }, []);
 
@@ -68,23 +62,36 @@ export default function MyBookings() {
     setTabValue(newValue);
   };
 
-  const handleCancelClick = (id: number) => setCancelBookingId(id);
-  const handleCancelClose = () => setCancelBookingId(null);
-
+  // ОТМЕНА
   const handleCancelConfirm = async () => {
     if (cancelBookingId !== null) {
-      setIsCanceling(true);
+      setIsProcessing(true);
       try {
         await bookingApi.delete(cancelBookingId);
-        setBookings((prev) => prev.filter((b) => b.id !== cancelBookingId));
         setCancelBookingId(null);
-        setSnackbar({ open: true, message: 'Бронь успешно отменена' });
-        // После отмены сразу обновляем данные, чтобы подтянуть очередь
-        await loadBookings(true); 
+        setSnackbar({ open: true, message: 'Бронь отменена', severity: 'success' });
+        await loadBookings(true);
       } catch (err: any) {
-        alert(err.message || 'Ошибка при отмене брони');
+        setSnackbar({ open: true, message: err.message || 'Ошибка отмены', severity: 'error' });
       } finally {
-        setIsCanceling(false);
+        setIsProcessing(false);
+      }
+    }
+  };
+
+  // ЗАВЕРШЕНИЕ
+  const handleCompleteConfirm = async () => {
+    if (completeBookingId !== null) {
+      setIsProcessing(true);
+      try {
+        await bookingApi.complete(completeBookingId);
+        setCompleteBookingId(null);
+        setSnackbar({ open: true, message: 'Бронь перенесена в историю', severity: 'success' });
+        await loadBookings(true);
+      } catch (err: any) {
+        setSnackbar({ open: true, message: err.message || 'Ошибка завершения', severity: 'error' });
+      } finally {
+        setIsProcessing(false);
       }
     }
   };
@@ -105,9 +112,10 @@ export default function MyBookings() {
   };
 
   if (isLoading) return <Loader />;
-  if (error) return <Box><Alert severity="error" sx={{ mb: 2 }}>{error}</Alert><EmptyState title="Ошибка" description="Попробуйте позже" /></Box>;
+  if (error) return <Box><Alert severity="error" sx={{ mb: 2 }}>{error}</Alert></Box>;
 
   const bookingToCancel = bookings.find((b) => b.id === cancelBookingId);
+  const bookingToComplete = bookings.find((b) => b.id === completeBookingId);
 
   return (
     <Box sx={{ maxWidth: 800, mx: 'auto' }}>
@@ -138,10 +146,29 @@ export default function MyBookings() {
 
                   <Stack direction="row" spacing={2} sx={{ alignItems: 'center' }}>
                     {getStatusChip(booking.status)}
+                    
+                    {/* Кнопки показываем только для Активных */}
                     {tabValue === 0 && (
-                      <Button variant="outlined" color="error" size="small" onClick={() => handleCancelClick(booking.id)}>
-                        Отменить
-                      </Button>
+                      <>
+                        {booking.status === 'active' && (
+                          <Button 
+                            variant="outlined" 
+                            color="success" 
+                            size="small" 
+                            onClick={() => setCompleteBookingId(booking.id)}
+                          >
+                            Завершить
+                          </Button>
+                        )}
+                        <Button 
+                          variant="outlined" 
+                          color="error" 
+                          size="small" 
+                          onClick={() => setCancelBookingId(booking.id)}
+                        >
+                          Отменить
+                        </Button>
+                      </>
                     )}
                   </Stack>
                 </CardContent>
@@ -151,40 +178,60 @@ export default function MyBookings() {
         </Stack>
       </Fade>
 
-      <Dialog open={cancelBookingId !== null} onClose={handleCancelClose} maxWidth="xs" fullWidth slotProps={{ paper: { sx: { borderRadius: 3 } } }}>
+      {/* ДИАЛОГ ОТМЕНЫ */}
+      <Dialog open={cancelBookingId !== null} onClose={() => setCancelBookingId(null)} maxWidth="xs" fullWidth slotProps={{ paper: { sx: { borderRadius: 3 } } }}>
         <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           Отмена брони
-          <IconButton onClick={handleCancelClose} size="small" disabled={isCanceling}>
-            <Close />
-          </IconButton>
+          <IconButton onClick={() => setCancelBookingId(null)} size="small"><Close /></IconButton>
         </DialogTitle>
-
         <DialogContent>
           <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
             <WarningAmber sx={{ fontSize: 48, color: 'error.main' }} />
           </Box>
           <Typography variant="h3" sx={{ textAlign: 'center', mb: 1 }}>Вы уверены?</Typography>
           <Typography color="text.secondary" sx={{ textAlign: 'center', mb: 2 }}>
-            Бронь на <strong>{bookingToCancel?.machineName}</strong> <br />
-            {bookingToCancel?.date}, {bookingToCancel?.time}
+            Бронь на <strong>{bookingToCancel?.machineName}</strong> будет удалена.
           </Typography>
         </DialogContent>
-
         <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={handleCancelClose} variant="outlined" disabled={isCanceling}>Нет, оставить</Button>
-          <Button onClick={handleCancelConfirm} variant="contained" color="error" autoFocus disabled={isCanceling}>
-            {isCanceling ? 'Отмена...' : 'Да, отменить'}
+          <Button onClick={() => setCancelBookingId(null)} variant="outlined" disabled={isProcessing}>Нет</Button>
+          <Button onClick={handleCancelConfirm} variant="contained" color="error" disabled={isProcessing}>
+            {isProcessing ? 'Удаление...' : 'Да, отменить'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* ДИАЛОГ ЗАВЕРШЕНИЯ */}
+      <Dialog open={completeBookingId !== null} onClose={() => setCompleteBookingId(null)} maxWidth="xs" fullWidth slotProps={{ paper: { sx: { borderRadius: 3 } } }}>
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          Завершение брони
+          <IconButton onClick={() => setCompleteBookingId(null)} size="small"><Close /></IconButton>
+        </DialogTitle>
+        <DialogContent>
+          <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
+            <CheckCircleOutlined sx={{ fontSize: 48, color: 'success.main' }} />
+          </Box>
+          <Typography variant="h3" sx={{ textAlign: 'center', mb: 1 }}>Завершить стирку?</Typography>
+          <Typography color="text.secondary" sx={{ textAlign: 'center', mb: 2 }}>
+            Бронь переместится в историю, а следующий в очереди получит этот слот.
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setCompleteBookingId(null)} variant="outlined" disabled={isProcessing}>Отмена</Button>
+          <Button onClick={handleCompleteConfirm} variant="contained" color="success" disabled={isProcessing}>
+            {isProcessing ? 'Завершение...' : 'Да, завершить'}
           </Button>
         </DialogActions>
       </Dialog>
       
+      {/* УВЕДОМЛЕНИЯ */}
       <Snackbar 
         open={snackbar.open} 
         autoHideDuration={4000} 
         onClose={() => setSnackbar({ ...snackbar, open: false })}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       >
-        <Alert severity="success" onClose={() => setSnackbar({ ...snackbar, open: false })}>
+        <Alert severity={snackbar.severity} onClose={() => setSnackbar({ ...snackbar, open: false })}>
           {snackbar.message}
         </Alert>
       </Snackbar>

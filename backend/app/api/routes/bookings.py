@@ -31,11 +31,12 @@ def list_bookings(db: Session = Depends(get_db), current_user: User = Depends(ge
 def create_booking(data: BookingCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     existing_bookings = crud.get_bookings(db)
 
-    # 1. ПРОВЕРКА: не бронировал ли этот же пользователь уже этот слот?
+    # 1. ПРОВЕРКА: не бронировал ли этот же пользователь УЖЕ этот слот (только активные или в очереди!)
     user_already_booked = any(
         b.machine_id == data.machine_id 
         and b.user_id == current_user.id 
         and b.start_time == data.start_time 
+        and b.status in ['active', 'queued']  # <--- ДОБАВЛЕНА ЭТА СТРОКА
         for b in existing_bookings
     )
     if user_already_booked:
@@ -98,3 +99,35 @@ def delete_booking(booking_id: int, db: Session = Depends(get_db), current_user:
             db.commit()
             db.refresh(next_in_queue)
             print(f"DEBUG: Бронь пользователя {next_in_queue.user_id} повышена до ACTIVE!")
+
+
+# 5. ЗАВЕРШЕНИЕ БРОНИ (перенос в историю) - ВЫНЕСЕНО ИЗ delete_booking!
+@router.patch("/{booking_id}/complete", response_model=BookingResponse)
+def complete_booking(booking_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    booking = crud.get_booking(db, booking_id)
+    if not booking:
+        raise HTTPException(404, "Бронь не найдена")
+    if booking.user_id != current_user.id:
+        raise HTTPException(403, "Нет прав на эту бронь")
+    if booking.status != 'active':
+        raise HTTPException(400, "Завершить можно только активную бронь")
+
+    # 1. Меняем статус на "завершено"
+    booking.status = 'completed'
+    db.commit()
+    
+    # 2. Продвигаем очередь (так как место освободилось досрочно)
+    next_in_queue = db.query(Booking).filter(
+        Booking.machine_id == booking.machine_id,
+        Booking.start_time == booking.start_time,
+        Booking.end_time == booking.end_time,
+        Booking.status == 'queued'
+    ).order_by(Booking.id.asc()).first()
+
+    if next_in_queue:
+        next_in_queue.status = 'active'
+        db.commit()
+
+    db.refresh(booking)
+    booking.machine_name = booking.machine.name if booking.machine else f"Машина №{booking.machine_id}"
+    return booking
