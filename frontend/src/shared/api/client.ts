@@ -1,37 +1,42 @@
+// ===== HTTP-клиент =====
 const API_URL = 'http://127.0.0.1:8000';
 
-// Хранилище токенов (в памяти)
-let accessToken: string | null = null;
-let refreshToken: string | null = null;
+// Ключи для localStorage
+const ACCESS_TOKEN_KEY = 'wm_access_token';
+const REFRESH_TOKEN_KEY = 'wm_refresh_token';
+
+// ===== ХРАНИЛИЩЕ ТОКЕНОВ (в localStorage) =====
+// Теперь токены сохраняются в браузере и не пропадают при F5
 
 export const setTokens = (access: string, refresh: string) => {
-  accessToken = access;
-  refreshToken = refresh;
+  localStorage.setItem(ACCESS_TOKEN_KEY, access);
+  localStorage.setItem(REFRESH_TOKEN_KEY, refresh);
 };
 
 export const clearTokens = () => {
-  accessToken = null;
-  refreshToken = null;
+  localStorage.removeItem(ACCESS_TOKEN_KEY);
+  localStorage.removeItem(REFRESH_TOKEN_KEY);
 };
 
-export const getAccessToken = () => accessToken;
-export const getRefreshToken = () => refreshToken;
+export const getAccessToken = () => localStorage.getItem(ACCESS_TOKEN_KEY);
+export const getRefreshToken = () => localStorage.getItem(REFRESH_TOKEN_KEY);
 
 
-// Универсальная функция запроса
+// ===== УНИВЕРСАЛЬНЫЙ ЗАПРОС =====
+
 export async function apiRequest<T>(
   endpoint: string,
   options: RequestInit = {},
-  retry = true, // retry=true нужен для авто-повтора после refresh
+  retry = true,
 ): Promise<T> {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...(options.headers as Record<string, string>),
   };
 
-  // Добавляем access-токен, если есть
-  if (accessToken) {
-    headers['Authorization'] = `Bearer ${accessToken}`;
+  const token = getAccessToken();
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
   }
 
   const response = await fetch(`${API_URL}${endpoint}`, {
@@ -39,11 +44,12 @@ export async function apiRequest<T>(
     headers,
   });
 
-  // Если 401 — пробуем обновить токен
-  if (response.status === 401 && retry && refreshToken) {
+  // Если 401 — access-токен протух. Пробуем обновить.
+  if (response.status === 401 && retry && getRefreshToken()) {
     const refreshed = await tryRefresh();
     if (refreshed) {
-      return apiRequest<T>(endpoint, options, false);   // повтор запроса
+      // Повторяем исходный запрос с новым токеном
+      return apiRequest<T>(endpoint, options, false);
     }
   }
 
@@ -57,19 +63,24 @@ export async function apiRequest<T>(
 }
 
 
-// Обновление access-токена
+// ===== ОБНОВЛЕНИЕ ACCESS-ТОКЕНА =====
+
 async function tryRefresh(): Promise<boolean> {
-  if (!refreshToken) return false;
+  const refresh = getRefreshToken();
+  if (!refresh) return false;
+
   try {
     const response = await fetch(`${API_URL}/auth/refresh`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ refresh_token: refreshToken }),
+      body: JSON.stringify({ refresh_token: refresh }),
     });
+
     if (!response.ok) {
       clearTokens();
       return false;
     }
+
     const data = await response.json();
     setTokens(data.access_token, data.refresh_token);
     return true;

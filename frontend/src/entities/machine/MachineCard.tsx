@@ -1,45 +1,57 @@
-// ===== ИМПОРТЫ =====
 import { Card, CardContent, Typography, Stack, Divider, Button } from '@mui/material';
 import type { MachineStatus } from './types';
-// import type — потому что MachineStatus используется только для типизации.
-// Vite удалит этот импорт при сборке.
+import type { BackendBookingResponse } from '../../shared/api/bookingApi';
 
-import { timeSlots } from '../../shared/api/mockApi';
-// timeSlots — массив временных слотов из единого источника данных
+const timeSlots = [
+  '08:00-10:00', '10:00-12:00', '12:00-14:00',
+  '14:00-16:00', '16:00-18:00', '18:00-20:00', '20:00-22:00'
+];
 
-
-// ===== ТИП ПРОПСОВ КОМПОНЕНТА =====
 interface Props {
-  machine: { id: number; name: string };  // какая машина
-  day: number;                            // индекс выбранного дня (0 = сегодня)
-  selectedSlot: { machineId: number; time: string } | null;  // выбранный слот
-  onSlotClick: (machineId: number, time: string, status: string) => void;  // callback
+  machine: { id: number; name: string };
+  day: number;
+  selectedSlot: { machineId: number; time: string; status?: string } | null;
+  onSlotClick: (machineId: number, time: string, status: string) => void;
+  bookings: BackendBookingResponse[];
 }
 
-
-// ===== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ (чистые) =====
-
-/**
- * Определяет статус конкретного слота.
- * Демонстрационная логика: для «сегодня» некоторые слоты жёстко захардкожены.
- * В реальном приложении статус приходил бы с backend.
- */
-const getStatus = (machineId: number, time: string, day: number): MachineStatus => {
-  if (day === 0) {
-    if (machineId === 1 && time === '10:00-12:00') return 'busy';    // занято
-    if (machineId === 1 && time === '12:00-14:00') return 'queued';  // очередь
-    if (machineId === 2 && time === '08:00-10:00') return 'busy';
-    if (machineId === 3 && time === '18:00-20:00') return 'busy';
-  }
-  return 'free';  // по умолчанию — свободно
+const getDateString = (dayOffset: number) => {
+  const date = new Date();
+  date.setDate(date.getDate() + dayOffset);
+  return date.toISOString().split('T')[0];
 };
 
+const getStatusInfo = (
+  machineId: number, 
+  time: string, 
+  day: number, 
+  bookings: BackendBookingResponse[]
+) => {
+  const targetDate = getDateString(day);
+  const [startTime, endTime] = time.split('-');
 
-/**
- * Переводит статус в цвет MUI.
- * Возвращает ключ из palette темы: error (красный) / warning (жёлтый) / success (зелёный).
- * Union-тип возвращаемого значения нужен для корректной работы с MUI Button color.
- */
+  const slotBookings = bookings.filter(b => {
+    if (b.machine_id !== machineId) return false;
+    const bDate = b.start_time.split('T')[0];
+    const bStart = b.start_time.split('T')[1].substring(0, 5);
+    const bEnd = b.end_time.split('T')[1].substring(0, 5);
+    return bDate === targetDate && bStart === startTime && bEnd === endTime;
+  });
+
+  const activeCount = slotBookings.filter(b => b.status === 'active').length;
+  const queueCount = slotBookings.filter(b => b.status === 'queued').length;
+
+  // ЛОГИКА ЦВЕТА: Если есть очередь — делаем слот желтым (даже если он занят)
+  let status: MachineStatus = 'free';
+  if (queueCount > 0) {
+    status = 'queued';
+  } else if (activeCount > 0) {
+    status = 'busy';
+  }
+
+  return { status, queueCount };
+};
+
 const getStatusColor = (status: MachineStatus): 'error' | 'warning' | 'success' => {
   switch (status) {
     case 'busy':   return 'error';
@@ -48,79 +60,48 @@ const getStatusColor = (status: MachineStatus): 'error' | 'warning' | 'success' 
   }
 };
 
-
-/**
- * Переводит статус в русский текст для подписи под временем.
- */
-const getStatusLabel = (status: MachineStatus): string => {
-  switch (status) {
-    case 'busy':   return 'Занято';
-    case 'queued': return 'Очередь';
-    case 'broken': return 'Сломано';  // заложено на будущее
-    default:       return 'Свободно';
-  }
-};
-
-
-// ===== ОСНОВНОЙ КОМПОНЕНТ =====
-export default function MachineCard({ machine, day, selectedSlot, onSlotClick }: Props) {
+export default function MachineCard({ machine, day, selectedSlot, onSlotClick, bookings }: Props) {
   return (
-    // Карточка машины — со стилями из темы (bg background.paper, border 1px solid #0f6bec)
     <Card>
       <CardContent>
-        {/* ===== ЗАГОЛОВОК: название машины ===== */}
         <Typography variant="h3" sx={{ mb: 2 }}>
           {machine.name}
         </Typography>
-
-        {/* Горизонтальный разделитель */}
         <Divider sx={{ mb: 2 }} />
 
-        {/* ===== СЕТКА СЛОТОВ =====
-            direction="row"       — горизонтальная раскладка
-            spacing={1}            — отступ 8px между кнопками
-            flexWrap: 'wrap'       — перенос на новую строку, если не помещаются
-            useFlexGap             — использует CSS-gap вместо margin (корректный перенос)
-        */}
         <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }} useFlexGap>
           {timeSlots.map((time) => {
-            // Определяем статус ЭТОГО слота (занято/очередь/свободно)
-            const status = getStatus(machine.id, time, day);
+            const { status, queueCount } = getStatusInfo(machine.id, time, day, bookings);
+            const isSelected = selectedSlot?.machineId === machine.id && selectedSlot?.time === time;
 
-            // Проверяем: выбран ли ЭТОТ слот сейчас?
-            // Optional chaining (?.) защищает от ошибки, если selectedSlot === null
-            const isSelected =
-              selectedSlot?.machineId === machine.id && selectedSlot?.time === time;
+            // Формируем текст на кнопке
+            let label = 'Свободно';
+            if (status === 'queued') {
+              // Показываем "Очередь (1)", "Очередь (2)" и т.д.
+              label = `Очередь (${queueCount})`;
+            } else if (status === 'busy') {
+              label = 'Занято';
+            }
 
             return (
               <Button
-                key={time}   // уникальный key для React (обязателен в .map)
-
-                // Свободные — с обводкой (outlined), занятые — с заливкой (contained)
+                key={time}
                 variant={status === 'free' ? 'outlined' : 'contained'}
-
-                // Цвет из палитры темы
                 color={getStatusColor(status)}
-
-                // При клике вызываем callback из родителя с параметрами этого слота.
-                // Замыкание «запоминает» machine.id, time, status.
                 onClick={() => onSlotClick(machine.id, time, status)}
-
                 sx={{
-                  flexDirection: 'column',   // текст внутри кнопки — в столбик
-                  py: 1,                     // вертикальный отступ
-                  minWidth: 110,             // минимальная ширина, чтобы кнопки не сжимались
-                  border: isSelected ? '2px solid #fff' : undefined,  // подсветка выбора
+                  flexDirection: 'column',
+                  py: 1,
+                  minWidth: 110,
+                  border: isSelected ? '2px solid #fff' : undefined,
                 }}
               >
-                {/* Верхняя строка: время начала (например, "08:00" из "08:00-10:00") */}
                 <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
                   {time.split('-')[0]}
                 </Typography>
-
-                {/* Нижняя строка: статус (Свободно / Занято / Очередь) */}
+                
                 <Typography variant="caption">
-                  {getStatusLabel(status)}
+                  {label}
                 </Typography>
               </Button>
             );

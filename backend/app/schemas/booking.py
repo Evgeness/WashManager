@@ -18,6 +18,8 @@ class BookingUpdate(BaseModel):
 
 class BookingResponse(BookingBase):
     id: int
+    user_id: int
     status: str
+    machine_name: str | None = None  # <--- ДОБАВИЛИ
 
     model_config = ConfigDict(from_attributes=True)
