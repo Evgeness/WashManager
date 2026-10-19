@@ -344,21 +344,6 @@ uvicorn app.main:app --reload
 
 Swagger UI: **http://127.0.0.1:8000/docs**
 
-### Переменные окружения (`backend/.env`)
-
-```env
-DATABASE_URL=postgresql://postgres:1234@localhost:3000/washmanager
-SECRET_KEY=<случайная строка 64+ символа>
-ACCESS_TOKEN_EXPIRE_MINUTES=30
-REFRESH_TOKEN_EXPIRE_DAYS=7
-```
-
-Генерация `SECRET_KEY`:
-
-```bash
-python -c "import secrets; print(secrets.token_urlsafe(64))"
-```
-
 ## 🛠 Стек технологий
 
 ### Frontend
